@@ -1,0 +1,328 @@
+<html>
+<head>
+    <title>Transformation</title>  
+</head>
+<body>
+
+<canvas id="canvas" width="200" height="200"
+style="width:500px; height:500px; border:1px solid #000; image-rendering: pixelated;">
+</canvas>
+
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const imageData = ctx.createImageData(canvas.width, canvas.height);
+const data = imageData.data; // Array of color [R,G,B,A, R,G,B,A, ...]
+
+function putPixel(x, y, r, g, b, a=255) {
+    const index = (y * canvas.width + x) * 4;
+    data[index] = r;     // Red
+    data[index + 1] = g; // Green
+    data[index + 2] = b; // Blue
+    data[index + 3] = a; // Alpha
+}
+function drawLine(x1, y1, x2, y2, r, g, b, a = 255) {
+  const dx = Math.abs(x2 - x1);
+  const dy = Math.abs(y2 - y1);
+
+  if(dx > dy) {
+    const m = (y2 - y1) / (x2 - x1);
+    const c = y1 - m * x1;
+    for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) {
+      const y = Math.round(m * x + c);
+      putPixel(x, y, r, g, b, a)
+    }
+  } else {
+    const m = (x2 - x1) / (y2 - y1);
+    const c = x1 - m * y1;
+    for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++) {
+      const x = Math.round(m * y + c);
+      putPixel(x, y, r, g, b, a);
+    }
+  }
+}
+function drawRect(x1,y1,x2,y2,r,g,b,a = 255){
+    drawLine(x1,y1,x2,y1,r,g,b,a); // Top edge
+    drawLine(x2,y1,x2,y2,r,g,b,a); // Right edge
+    drawLine(x2,y2,x1,y2,r,g,b,a); // Bottom edge
+    drawLine(x1,y2,x1,y1,r,g,b,a); // Left edge
+}
+
+function drawRectFilled(x1,y1,x2,y2,r,g,b,a = 255){
+    for(let y = y1; y <= y2; y++){
+        for(let x = x1; x <= x2; x++){
+                putPixel(x,y,r,g,b,a);
+        }
+    }
+}
+
+function drawRectGradient(x1,y1,x2,y2, r1,g1,b1, r2,g2,b2, a = 255){
+    for(let y = y1; y <= y2; y++){
+        let t = (y - y1) / (y2 - y1);
+        let r = Math.round(r1 * (1 - t) + r2 * t);
+        let g = Math.round(g1 * (1 - t) + g2 * t);
+        let b = Math.round(b1 * (1 - t) + b2 * t);
+        for(let x = x1; x <= x2; x++){
+            putPixel(x,y,r,g,b,a);
+        }
+    }
+}
+
+function drawEllipse(cx, cy, rx, ry, r, g, b, a = 255) {
+    for (let y = -ry; y <= ry; y++) {
+        for (let x = -rx; x <= rx; x++) {
+            if ((x * x) / (rx * rx) + (y * y) / (ry * ry) < 1) {
+                putPixel(cx + x, cy + y, r, g, b, a);
+            }
+        }
+    }
+}
+
+function drawSprite(sprite, x, y, r, g, b, a = 255) {
+    for (let j = 0; j < sprite.length; j++) {
+        for (let i = 0; i < sprite[j].length; i++) {
+            if (sprite[j][i] === 1) {
+                putPixel(x + i, y + j, r, g, b, a);
+            }
+        }
+    }
+}
+
+function drawSprite24Bit(sprite, x, y, degree, scaleX, scaleY) {
+    const spriteHeight = sprite.length;
+    const spriteWidth = sprite[0].length;
+
+    // 1. คำนวณขอบเขตคร่าวๆ (Bounding Box) ของผลลัพธ์หลัง Scale เพื่อจำกัดพื้นที่วนลูป
+    // ใช้ขนาดที่ใหญ่ที่สุดที่เป็นไปได้เมื่อหมุน (เส้นทแยงมุม)
+    const maxDim = Math.ceil(Math.sqrt(spriteWidth * spriteWidth + spriteHeight * spriteHeight) * Math.max(scaleX, scaleY));
+    
+    const rad = degree * Math.PI / 180;
+    const cosA = Math.cos(-rad); // ใช้มุมติดลบสำหรับ Inverse Rotation
+    const sinA = Math.sin(-rad);
+
+    // 2. วนลูปเฉพาะพื้นที่รอบๆ จุดศูนย์กลางบนหน้าจอปลายทาง (ไม่แตกแน่นอน)
+    for (let screenY = -maxDim; screenY <= maxDim; screenY++) {
+        for (let screenX = -maxDim; screenX <= maxDim; screenX++) {
+            
+            // 3. Inverse Scale: หารด้วย Scale เพื่อย้อนกลับไปขนาดเดิม
+            const x_scaled = screenX / scaleX;
+            const y_scaled = screenY / scaleY;
+
+            // 4. Inverse Rotate: หมุนย้อนกลับไปหาแกนเดิมของรูปต้นฉบับ
+            const x_rot = x_scaled * cosA - y_scaled * sinA;
+            const y_rot = x_scaled * sinA + y_scaled * cosA;
+
+            // 5. Inverse Center: ย้อนกลับไปหาตำแหน่ง Index (i, j) ในอาเรย์ต้นฉบับ
+            const i = Math.round(x_rot + (spriteWidth / 2));
+            const j = Math.round(y_rot + (spriteHeight / 2));
+
+            // 6. ตรวจสอบว่าพิกัดที่คำนวณย้อนกลับไป อยู่ในขอบเขตของรูปภาพต้นฉบับหรือไม่
+            if (i >= 0 && i < spriteWidth && j >= 0 && j < spriteHeight) {
+                const color = sprite[j][i];
+
+                if (color !== null) {
+                    // แยกสี 24-bit 
+                    const r = (color >> 16) & 255;
+                    const g = (color >> 8) & 255;
+                    const b = color & 255;
+
+                    // วาดลงหน้าจอปลายทางโดยบวกตำแหน่งการเลื่อน (Translate) เข้าไป
+                    putPixel(x + screenX, y + screenY, r, g, b);
+                }
+            }
+        }
+    }
+}
+
+const spaceInvaderSprite = [
+            [0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            [0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1],
+            [0, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1],
+            [0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
+            [0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1],
+            [0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1],
+            [0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1],
+            [0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0],
+            [1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+            [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+            [0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0],
+            [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
+        ];
+
+const smileSprite16x16 = [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],
+            [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+            [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+            [0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0],
+            [0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0],
+            [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+            [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+            [0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0],
+            [0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+            [0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0],
+            [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+            [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ];
+
+const smileSprite24Bit = [
+  [null,       null,       0xB45309, 0xD97706, 0xD97706, 0xB45309, null,       null      ],
+  [null,       0xD97706,   0xFDE047, 0xFEF08A, 0xFEF08A, 0xFDE047, 0xD97706, null      ],
+  [0xB45309,   0xFDE047,   0x111827, 0xFDE047, 0xFDE047, 0x111827, 0xFDE047, 0xB45309  ],
+  [0xD97706,   0xFEF08A,   0x111827, 0xFEF08A, 0xFEF08A, 0x111827, 0xFEF08A, 0xD97706  ],
+  [0xD97706,   0xFDE047,   0xFDE047, 0xFDE047, 0xFDE047, 0xFDE047, 0xFDE047, 0xD97706  ],
+  [0xB45309,   0xFDE047,   0x111827, 0xFDE047, 0xFDE047, 0x111827, 0xFDE047, 0xB45309  ],
+  [null,       0xD97706,   0xFDE047, 0x111827, 0x111827, 0xFDE047, 0xD97706, null      ],
+  [null,       null,       0xB45309, 0xD97706, 0xD97706, 0xB45309, null,       null      ],
+];
+
+let isDragging = false;
+let previousMouseX = 0;
+let previousMouseY = 0;
+let r = 0;
+let g = 0;
+let b = 0;
+let degree = 0;
+let scale = 1;
+let mouseX = 0;
+let mouseY = 0;
+
+function drawSpriteRotateScale(sprite, x, y, degree, scaleX, scaleY, r, g, b, a = 255) {
+  for (let j = 0; j < sprite.length; j++) {
+    for (let i = 0; i < sprite[j].length; i++) {
+      if (sprite[j][i] === 1) {
+        //Center
+        const cX = i - (sprite[j].length / 2);
+        const cY = j - (sprite.length / 2);
+
+        //Rotate
+        const rad = degree * Math.PI / 180;
+        const x_rot = Math.round(cX * Math.cos(rad) - cY * Math.sin(rad));
+        const y_rot = Math.round(cX * Math.sin(rad) + cY * Math.cos(rad));
+        //Scale
+        const x_scaled = Math.round(x_rot * scaleX);
+        const y_scaled = Math.round(y_rot * scaleY);
+        //Translate
+        const x_translate = x_scaled + x;
+        const y_translate = y_scaled + y;
+        
+        //putPixel(x_scaled + x, y_scaled + y, r, g, b, a);
+        drawEllipse(x + x_scaled, y + y_scaled, Math.round(scaleX), Math.round(scaleY), r, g, b, a); // Draw a small ellipse instead of a pixel
+      }
+    }
+  }
+}
+
+function toScaledMouseCoords(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+        x: Math.floor((clientX - rect.left) * scaleX),
+        y: Math.floor((clientY - rect.top) * scaleY)
+    };
+}
+
+canvas.addEventListener('click', function(event){
+    //const {x,y} = toScaledMouseCoords(event.clientX, event.clientY);
+    //console.log('clicked', x,y);
+    //putPixel(x,y,255,0,0); //draw
+    //ctx.putImageData(imageData, 0, 0);
+});
+
+canvas.addEventListener('mousedown', function(event) {
+    isDragging = true;
+    //const { x, y } = toScaledMouseCoords(event.clientX, event.clientY);
+    console.log('mousedown', event.offsetX, event.offsetY);
+    //putPixel(x, y, 0, 255, 0); // Draw a green pixel on click
+    //ctx.putImageData(imageData, 0, 0);
+});
+
+canvas.addEventListener('mouseup', function(event) {
+    isDragging = false;
+    //const { x, y } = toScaledMouseCoords(event.clientX, event.clientY);
+    console.log('mouseup', event.offsetX, event.offsetY);
+    //putPixel(x, y, 0, 0, 255); // Draw a blue pixel on click
+    //ctx.putImageData(imageData, 0, 0);
+});
+
+canvas.addEventListener('mousemove', function(event) {
+    const { x, y } = toScaledMouseCoords(event.clientX, event.clientY);
+    mouseX = x;
+    mouseY = y;
+    if(isDragging){
+        drawLine(previousMouseX,previousMouseY, x, y, r, g, b);
+        
+        //putPixel(x,y,255,128,0);  
+        ctx.putImageData(imageData, 0, 0);
+    }
+    //console.log('mousemove', x, y, r, g, b);
+    //putPixel(x, y, 255, 0, 0); // Draw a red pixel on click
+    previousMouseX = x;
+    previousMouseY = y;
+});
+
+window.addEventListener('keydown', function(event) {
+    console.log('Keydown', event.key);
+    if(event.key === '1'){
+        r = 255; g = 0; b = 0; //red
+    }
+    else if(event.key === '2'){
+        r = 0; g = 255; b = 0; //green
+    }
+    else if(event.key === '3') {
+    r = 0; g = 0; b = 255; //blue
+    }
+
+    if(event.key === 'ArrowLeft'){
+        degree -= 5;
+    }
+    else if(event.key === 'ArrowRight'){
+        degree += 5;
+    }
+
+    if(event.key === 'ArrowUp'){
+        scale += 0.1;
+    }
+    else if(event.key === 'ArrowDown'){
+        scale -= 0.1;
+    }
+});
+
+window.addEventListener('keyup', function(event) {
+    console.log('Keyup', event.key);
+    
+});
+
+
+//drawSprite(spaceInvaderSprite, 100, 100, 20, 0, 0, 255);
+
+//drawSpriteRotateScale(spaceInvaderSprite, 50, 50, 45, 1, 1, 255, 0, 0); //draw blue sprite
+
+
+function animate() {
+    drawRectFilled(0, 0, canvas.width - 1, canvas.height - 1, 255, 255, 255); // Clear the canvas with black
+    drawLine(100, 100, canvas.width - 1, 100, 0, 0, 0); //black line
+    drawLine(100, 100, 100, 0, 0, 0); //black line
+    // degree += 1; // Increase rotation degree
+    drawSprite24Bit(smileSprite24Bit, mouseX, mouseY, degree, scale, scale);
+    //drawSpriteRotateScale(spaceInvaderSprite, mouseX, mouseY, degree, scale, scale, 255, 105, 180); // Draw a green space invader at (10,10)
+    ctx.putImageData(imageData, 0, 0);
+    requestAnimationFrame(animate);
+}
+animate();
+
+// show monitor
+ctx.putImageData(imageData, 0, 0);
+
+</script>
+
+</body>
+</html>
