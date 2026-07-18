@@ -4,4 +4,4 @@
 หมู่ 700
 
 # Interactive Computer Graphics
-[Transformation](./transformation.html)
+[Transformation](./Transformation.html)
