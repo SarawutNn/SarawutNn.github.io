@@ -3,3 +3,4 @@
 รหัสนิสิต 6721601516
 หมู่ 700
 
+Interactive Computer Graphics
