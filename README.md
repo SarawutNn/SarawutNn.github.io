@@ -5,3 +5,6 @@
 
 # Interactive Computer Graphics
 [=====Transformation=====](./Transformation.html)
+
+# ASSIGNMENT #2 Paint
+.[=====Paint=====](.Assignment#2.html)
