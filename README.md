@@ -8,3 +8,6 @@
 
 # ASSIGNMENT #2 Paint
 [=====Paint=====](./Assignment2.html)
+
+# ASSIGNMET #3 Next Gen Rendering
+[=====Next Gen Rendering=====](./Assignment3.html)
