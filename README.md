@@ -13,4 +13,4 @@
 [=====Next Gen Rendering=====](./Assignment3.html)
 
 # Final_Assignment
-[=====Interactive 3D Portfolio=====](./Final_Assingment.html)
+[=====Interactive 3D Portfolio=====](./Final_Assignment.html)
