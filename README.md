@@ -14,6 +14,3 @@
 
 # Final_Assignment
 [=====Interactive 3D Portfolio=====](./Final_Assignment.html)
-
-# Portfolio
-[=====Portfolio=====](./Portfolio2.html)
